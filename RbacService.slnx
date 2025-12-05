@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="RbacService.Application/RbacService.Application.csproj" />
+  <Project Path="RbacService.Domain/RbacService.Domain.csproj" />
+  <Project Path="RbacService.Infrastructure/RbacService.Infrastructure.csproj" />
+  <Project Path="RbacService.Tests/RbacService.Tests.csproj" />
+</Solution>
