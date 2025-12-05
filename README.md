@@ -26,10 +26,14 @@ src/
  │    ├── Exceptions/
  │    └── Interfaces/
  ├── RbacService.Application/
- │    ├── Commands/
- │    ├── Queries/
- │    ├── Handlers/
- │    ├── Interfaces/
+ │    ├── User/
+ |    |    |──Commands/
+ |    |    |──CommandHandlers/
+ |    |    |──Queries/
+ |    |    |──QueryHandlers/
+ │    ├── Roles/
+ │    ├── DTOs/
+ │    ├── Mappings/
  │    ├── Pipeline/
  │    ├── Validators/        
  │    └── Rules/             
@@ -37,7 +41,7 @@ src/
  │    ├── Data/
  │    ├── Repositories/
  │    ├── Interceptors/
- │    └── DependencyInjection/
+ │    └── UnitOfWork/
  └── RbacService.Api/
       └── Controllers/
 ```
@@ -72,48 +76,76 @@ sequenceDiagram
     API-->>Client: Return 200 OK or 403 Forbidden
 ```
 
-
 🧩 C4 Component Diagram
 
- %% This is a Mermaid diagram for the system context
-C4Component
-    title RBAC Library - Component Diagram
-    
-    Container_Boundary(api, "API Layer") {
-        Component(controller, "Controllers", "ASP.NET Core", "Expose endpoints for RBAC operations")
-    }
+```mermaid
+%% C4Component Diagram for RBAC Library
+flowchart TD
+    subgraph API_Layer["API Layer"]
+        Controller["Controllers
+(ASP.NET Core)
+Expose endpoints for RBAC operations"]
+    end
 
-    Container_Boundary(app, "Application Layer") {
-        Component(commands, "Commands/Queries", "Wolverine", "Encapsulate use cases")
-        Component(handlers, "Handlers", "Wolverine", "Execute business logic")
-        Component(validators, "Validators", "FluentValidation", "Validate incoming requests")
-        Component(rules, "Rules Engine", "RulesEngine", "Evaluate custom business rules")
-        Component(pipeline, "Pipeline Behaviors", "Wolverine", "Inject user context, auditing")
-    }
+    subgraph Application_Layer["Application Layer"]
+        Commands["Commands/Queries
+(Wolverine)
+Encapsulate use cases"]
+        Handlers["Handlers
+(Wolverine)
+Execute business logic"]
+        Validators["Validators
+(FluentValidation)
+Validate incoming requests"]
+        Rules["Rules Engine
+(RulesEngine)
+Evaluate custom business rules"]
+        Pipeline["Pipeline Behaviors
+(Wolverine)
+Inject user context, auditing"]
+    end
 
-    Container_Boundary(domain, "Domain Layer") {
-        Component(entities, "Entities", "C#", "User, Role, Permission, Organization, Department, PiiField, MaskingRule")
-        Component(services, "Domain Services", "C#", "AccessEvaluator, MaskingService")
-        Component(exceptions, "Exceptions", "C#", "AccessDeniedException, PiiAccessViolationException")
-    }
+    subgraph Domain_Layer["Domain Layer"]
+        Entities["Entities
+(C#)
+User, Role, Permission, Organization, Department, PiiField, MaskingRule"]
+        Services["Domain Services
+(C#)
+AccessEvaluator, MaskingService"]
+        Exceptions["Exceptions
+(C#)
+AccessDeniedException, PiiAccessViolationException"]
+    end
 
-    Container_Boundary(infra, "Infrastructure Layer") {
-        Component(dbcontext, "RbacDbContext", "EF Core", "Database context with relationships")
-        Component(repos, "Repositories", "EF Core", "Concrete implementations of repository interfaces")
-        Component(uow, "UnitOfWork", "EF Core", "Transaction boundary and repository aggregator")
-        Component(interceptors, "Interceptors", "EF Core", "Audit & soft delete logic")
-    }
+    subgraph Infrastructure_Layer["Infrastructure Layer"]
+        DbContext["RbacDbContext
+(EF Core)
+Database context with relationships"]
+        Repos["Repositories
+(EF Core)
+Concrete implementations of repository interfaces"]
+        UoW["UnitOfWork
+(EF Core)
+Transaction boundary and repository aggregator"]
+        Interceptors["Interceptors
+(EF Core)
+Audit & soft delete logic"]
+    end
 
-    Rel(controller, commands, "Dispatches via Wolverine")
-    Rel(commands, handlers, "Handled by")
-    Rel(handlers, validators, "Validated by")
-    Rel(handlers, rules, "Rules evaluated by")
-    Rel(handlers, entities, "Uses")
-    Rel(handlers, services, "Uses")
-    Rel(handlers, repos, "Accesses via UnitOfWork")
-    Rel(repos, dbcontext, "Uses")
-    Rel(dbcontext, Database, "Persists entities")
+    Database["MS SQL or any database
+(Persistence)"]
 
+    Controller --> Commands
+    Commands --> Handlers
+    Handlers --> Validators
+    Handlers --> Rules
+    Handlers --> Entities
+    Handlers --> Services
+    Handlers --> Repos
+    Repos --> UoW
+    Repos --> DbContext
+    DbContext --> Database
+```
 
 ⚙️ Getting Started
 
