@@ -44,6 +44,7 @@ src/
 
 🔄 Sequence Diagram (Authorization Flow)
 
+```mermaid
 sequenceDiagram
     participant Client
     participant API
@@ -68,7 +69,7 @@ sequenceDiagram
     Handler-->>Wolverine: Return decision
     Wolverine-->>API: Response with result
     API-->>Client: Return 200 OK or 403 Forbidden
-
+```
 
 
 🧩 C4 Component Diagram
