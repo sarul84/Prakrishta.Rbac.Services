@@ -19,6 +19,7 @@ This library follows Clean Architecture:
 
 - 📂 Project Structure
 
+```
 src/
  ├── RbacService.Domain/
  │    ├── Entities/
@@ -39,7 +40,7 @@ src/
  │    └── DependencyInjection/
  └── RbacService.Api/
       └── Controllers/
-
+```
 
 
 🔄 Sequence Diagram (Authorization Flow)
@@ -76,7 +77,7 @@ sequenceDiagram
 
 C4Component
     title RBAC Library - Component Diagram
-
+     %% This is a Mermaid diagram for the system context
     Container_Boundary(api, "API Layer") {
         Component(controller, "Controllers", "ASP.NET Core", "Expose endpoints for RBAC operations")
     }
@@ -116,117 +117,157 @@ C4Component
 ⚙️ Getting Started
 
 - Install dependencies:
+```
 dotnet add package Wolverine
 dotnet add package FluentValidation
 dotnet add package RulesEngine
 dotnet add package Microsoft.EntityFrameworkCore
 dotnet add package Microsoft.EntityFrameworkCore.SqlServer
+```
 
 - Register services in Program.cs:
+```
 builder.Services.AddDbContext(connectionString);
 builder.Services.AddWolverine();
-builder.Services.AddValidatorsFromAssemblyContaining<UserCreatedCommandValidator>();
+builder.Services.AddRbacValidators();
 builder.Services.AddRulesEngine();
+```
 
 - Run migrations:
+
+```
 dotnet ef migrations add InitialCreate -p RbacService.Infrastructure -s RbacService.Api
 dotnet ef database update -p RbacService.Infrastructure -s RbacService.Api
+```
 
-
 
 🔄 Example Flow: UserCreatedCommand
 
 Command
-public record UserCreatedCommand(string Email, string FirstName, string LastName) : ICommand<User>;
-
-
-
-Validator (FluentValidation)
-public class UserCreatedCommandValidator : AbstractValidator<UserCreatedCommand>
-{
-    public UserCreatedCommandValidator()
-    {
-        RuleFor(x => x.Email).NotEmpty().EmailAddress();
-        RuleFor(x => x.FirstName).NotEmpty().MaximumLength(50);
-        RuleFor(x => x.LastName).NotEmpty().MaximumLength(50);
-    }
-}
-
-
+```
+public record CreateUser(string Name, 
+    string Email, 
+    string? Designation, 
+    Guid OrganizationId, 
+    Guid ApplicationId, 
+    Guid? ManagerId, 
+    Guid? DepartmentId);
+```
 
 Rules Engine
+
 Example JSON rule:
+```
 [
   {
-    "WorkflowName": "UserCreation",
+    "WorkflowName": "CreateUser",
     "Rules": [
       {
-        "RuleName": "BlockCertainDomains",
-        "SuccessEvent": "ValidDomain",
-        "ErrorMessage": "Email domain not allowed",
-        "RuleExpressionType": "LambdaExpression",
-        "Expression": "input.Email.EndsWith(\"@blocked.com\") == false"
+        "RuleName": "DesignationRequired",
+        "ErrorMessage": "Designation is required",
+        "Expression": "input.Designation == null"
       }
     ]
   }
 ]
+```
 
-
-Evaluator:
-public class UserCreationRuleEvaluator
+Validator:
+```
+namespace RbacService.Application.Validators.User
 {
-    private readonly RulesEngine.RulesEngine _rulesEngine;
-
-    public UserCreationRuleEvaluator(RulesEngine.RulesEngine rulesEngine)
+    public class CreateUserValidator : UserValidatorBase<Users.Commands.CreateUser>
     {
-        _rulesEngine = rulesEngine;
-    }
+        public CreateUserValidator(IUserRepository users)
+        {
+            AddCommonRules(x => x.Email, x => x.Name, x => x.Designation);
 
-    public async Task<bool> ValidateAsync(UserCreatedCommand command)
-    {
-        var result = await _rulesEngine.ExecuteAllRulesAsync("UserCreation", command);
-        return result.All(r => r.IsSuccess);
+            RuleFor(x => x.Email)
+                .MustAsync(async (email, ct) => !await users.ExistsByEmailAsync(email, null, CancellationToken.None))
+                .WithMessage("Email already exists");
+        }
+
     }
 }
+```
+Validator Service
 
-
+```
+namespace RbacService.Application.Validators
+{
+    public class ValidatorService<T> : IValidatorService<T>
+    {
+        private readonly IValidator<T> _defaultValidator;
+        private readonly RulesEngine.RulesEngine? _rulesEngine;
+
+        public ValidatorService(IValidator<T> defaultValidator, RulesEngine.RulesEngine? rulesEngine = null)
+        {
+            _defaultValidator = defaultValidator;
+            _rulesEngine = rulesEngine;
+        }
+
+        public async Task<IList<string>> ValidateAsync(T command, CancellationToken cancellationToken = default)
+        {
+            var errors = new List<string>();
+
+            // Step 1: FluentValidation (baseline rules)
+            var fluentResult = await _defaultValidator.ValidateAsync(command, cancellationToken);
+            if (!fluentResult.IsValid)
+                errors.AddRange(fluentResult.Errors.Select(e => e.ErrorMessage));
+
+            // Step 2: RulesEngine (tenant-defined rules)
+            if (_rulesEngine != null)
+            {
+                var workflowName = typeof(T).Name;
+                var reResults = await _rulesEngine.ExecuteAllRulesAsync(workflowName, command);
+                if (reResults != null && reResults.Any())
+                {
+                    foreach (var result in reResults.Where(r => !r.IsSuccess))
+                    {
+                        var errorMessage = result.Rule?.ErrorMessage ?? "Business rule validation failed";
+                        errors.Add(errorMessage);
+                    }
+                }
+            }
+
+            return errors;
+        }
+    }
+}
+```
 
 Handler (Wolverine)
-public class UserCreatedCommandHandler : ICommandHandler<UserCreatedCommand, User>
+```
+namespace RbacService.Application.Users.CommandHandlers
 {
-    private readonly RbacDbContext _dbContext;
-    private readonly UserCreationRuleEvaluator _ruleEvaluator;
-
-    public UserCreatedCommandHandler(RbacDbContext dbContext, UserCreationRuleEvaluator ruleEvaluator)
+    public class CreateUserHandler(IUnitOfWork rbacRepository)
     {
-        _dbContext = dbContext;
-        _ruleEvaluator = ruleEvaluator;
-    }
+        public readonly IUnitOfWork _rbacRepository = rbacRepository;
 
-    public async Task<User> Handle(UserCreatedCommand command, CancellationToken cancellationToken)
-    {
-        var rulesPassed = await _ruleEvaluator.ValidateAsync(command);
-        if (!rulesPassed)
-            throw new InvalidOperationException("Business rules failed for user creation.");
-
-        var user = new User
+        public async Task<Guid> Handle(CreateUser command, CancellationToken cancellationToken)
         {
-            Email = command.Email,
-            FirstName = command.FirstName,
-            LastName = command.LastName,
-            CreatedAt = DateTime.UtcNow
-        };
+            var user = new Domain.Entities.User
+            {
+                UserId = Guid.NewGuid(),
+                Email = command.Email,
+                Name = command.Name,
+                Designation = command.Designation,
+                DepartmentId = command.DepartmentId,
+                OrganizationId = command.OrganizationId,
+                ApplicationId = command.ApplicationId,
+                ManagerId = command.ManagerId
+            };
 
-        _dbContext.Users.Add(user);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return user;
+            await _rbacRepository.Users.AddAsync(user, cancellationToken);
+            await _rbacRepository.SaveChangesAsync(cancellationToken);
+            return user.UserId;
+        }
     }
 }
+      
+```
 
-
-
-Sequence Diagram
+```mermaid
 sequenceDiagram
     participant Client
     participant API
@@ -251,3 +292,4 @@ sequenceDiagram
     Handler-->>Wolverine: Return User
     Wolverine-->>API: Success response
     API-->>Client: 201 Created + User details
+```
