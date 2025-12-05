@@ -75,9 +75,10 @@ sequenceDiagram
 
 🧩 C4 Component Diagram
 
+ %% This is a Mermaid diagram for the system context
 C4Component
     title RBAC Library - Component Diagram
-     %% This is a Mermaid diagram for the system context
+    
     Container_Boundary(api, "API Layer") {
         Component(controller, "Controllers", "ASP.NET Core", "Expose endpoints for RBAC operations")
     }
