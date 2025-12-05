@@ -1,5 +1,7 @@
 ﻿📖 RBAC Library (Clean Architecture)
+ 
 🚀 Overview
+
 This library provides a Role-Based Access Control (RBAC) implementation built with Clean Architecture principles.
 It is designed for enterprise-grade applications where maintainability, scalability, and developer ergonomics are critical.
 Key features:
@@ -9,7 +11,7 @@ Key features:
 - Wolverine command/query bus for CQRS and event-driven workflows.
 - FluentValidation for request validation.
 - Rules Engine for configurable, custom business rules.
-
+  
 🏗 Architecture
 This library follows Clean Architecture:
 - Domain: Entities, value objects, exceptions, interfaces.
