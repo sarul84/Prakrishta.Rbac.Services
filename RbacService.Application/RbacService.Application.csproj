@@ -29,7 +29,6 @@
     <Folder Include="Applications\Commands\" />
     <Folder Include="Pipelines\" />
     <Folder Include="Roles\CommandHandlers\" />
-    <Folder Include="Roles\Commands\" />
     <Folder Include="Roles\QueryHandlers\" />
     <Folder Include="Roles\Queries\" />
   </ItemGroup>

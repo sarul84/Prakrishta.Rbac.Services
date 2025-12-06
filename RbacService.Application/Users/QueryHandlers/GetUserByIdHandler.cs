@@ -1,4 +1,4 @@
-﻿using RbacService.Application.DTOs;
+﻿using RbacService.Application.DTOs.User;
 using RbacService.Application.Mappings;
 using RbacService.Application.Users.Queries;
 using RbacService.Domain.Interfaces.Repositories;

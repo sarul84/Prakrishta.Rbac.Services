@@ -1,4 +1,4 @@
-﻿using RbacService.Application.DTOs;
+﻿using RbacService.Application.DTOs.User;
 using RbacService.Application.Mappings;
 using RbacService.Application.Users.Queries;
 using RbacService.Domain.Interfaces.Repositories;
@@ -12,7 +12,7 @@ namespace RbacService.Application.Users.QueryHandlers
         public async Task<UserDto?> Handle(GetUserByEmail query, CancellationToken cancellationToken)
         {
             var users = await _rbacRepository.Users.GetAllAsync(cancellationToken);
-            var user = users.FirstOrDefault(u => u.Email == query.Email);
+            var user = users.FirstOrDefault(u => u.Email.Equals(query.Email, StringComparison.OrdinalIgnoreCase));
             if (user is null) return null;
 
             return user.ToDto();

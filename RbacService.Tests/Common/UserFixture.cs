@@ -1,26 +1,13 @@
-﻿using Moq;
-using RbacService.Domain.Entities;
-using RbacService.Domain.Interfaces.Repositories;
-using RbacService.Infrastructure.Data;
+﻿using RbacService.Domain.Entities;
 using RbacService.Infrastructure.Repositories;
 
 namespace RbacService.Tests.Common
 {
-    public class UserFixture : IDisposable
+    public class UserFixture : RbacFixtureBase
     {
-        public RbacDbContext DbContext { get; }
-        public Mock<IUnitOfWork> MockUnitOfWork { get; }
-
         public UserFixture()
         {
-            // Create a fresh in-memory DbContext for each test run
-            DbContext = FakeDbContextFactory.CreateDbContext(Guid.NewGuid().ToString());
-
-            // Wire UnitOfWork to use real UserRepository backed by DbContext
-            MockUnitOfWork = new Mock<IUnitOfWork>();
             MockUnitOfWork.Setup(u => u.Users).Returns(new UserRepository(DbContext));
-            MockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
-                          .Returns(() => DbContext.SaveChangesAsync());
         }
 
         //Seeding Helpers
@@ -36,38 +23,24 @@ namespace RbacService.Tests.Common
                 OrganizationId = Guid.NewGuid(),
                 ApplicationId = Guid.NewGuid()
             };
-
-            DbContext.Users.Add(user);
-            await DbContext.SaveChangesAsync();
-            return user;
+            
+            return await SeedEntityAsync<User>(user);
         }
 
-        public async Task<List<User>> SeedUsersAsync(int count)
+        public async Task<List<User>> SeedUsersAsync(int count, Guid? orgId = null)
         {
-            var users = new List<User>();
-            for (int i = 0; i < count; i++)
+            var users = Enumerable.Range(0, count).Select(i => new User
             {
-                users.Add(new User
-                {
-                    UserId = Guid.NewGuid(),
-                    Email = $"user{i}@example.com",
-                    Name = $"User {i}",
-                    Designation = "Dev",
-                    DepartmentId = Guid.NewGuid(),
-                    OrganizationId = Guid.NewGuid(),
-                    ApplicationId = Guid.NewGuid()
-                });
-            }
-
-            DbContext.Users.AddRange(users);
-            await DbContext.SaveChangesAsync();
-            return users;
+                UserId = Guid.NewGuid(),
+                Email = $"user{i}@example.com",
+                Name = $"User {i}",
+                Designation = "Dev",
+                DepartmentId = Guid.NewGuid(),
+                OrganizationId = orgId ?? Guid.NewGuid(),
+                ApplicationId = Guid.NewGuid()
+            }).ToList();
+            
+            return await SeedEntitiesAsync<User>(users);
         }
-
-        public void Dispose()
-        {
-            DbContext.Dispose();
-        }
-
     }
 }

@@ -1,4 +1,4 @@
-﻿using RbacService.Application.DTOs;
+﻿using RbacService.Application.DTOs.User;
 using RbacService.Application.Users.Commands;
 using RbacService.Domain.Entities;
 

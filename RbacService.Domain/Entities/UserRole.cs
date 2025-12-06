@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace RbacService.Domain.Entities
+﻿namespace RbacService.Domain.Entities
 {
     public class UserRole : BaseEntity
     {

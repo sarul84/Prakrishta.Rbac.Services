@@ -2,9 +2,11 @@
 using JasperFx.Core.IoC;
 using Microsoft.Extensions.DependencyInjection;
 using RbacService.Application.Interfaces;
+using RbacService.Application.Pipelines;
 using RbacService.Application.Users.Commands;
 using RbacService.Application.Validators;
 using RbacService.Application.Validators.User;
+using Wolverine;
 
 namespace RbacService.Application.Extensions
 {
@@ -23,6 +25,12 @@ namespace RbacService.Application.Extensions
 
             // Register the generic validator service for any command type
             services.AddScoped(typeof(IValidatorService<>), typeof(ValidatorService<>));
+
+            // Register Wolverine middleware for validation
+            services.AddWolverine(x =>
+            {
+                x.Policies.AddMiddleware(typeof(ValidationMiddleware<>));
+            });
 
             return services;
         }
