@@ -1,5 +1,7 @@
 ﻿📖 RBAC Library (Clean Architecture)
+ 
 🚀 Overview
+
 This library provides a Role-Based Access Control (RBAC) implementation built with Clean Architecture principles.
 It is designed for enterprise-grade applications where maintainability, scalability, and developer ergonomics are critical.
 Key features:
@@ -9,7 +11,7 @@ Key features:
 - Wolverine command/query bus for CQRS and event-driven workflows.
 - FluentValidation for request validation.
 - Rules Engine for configurable, custom business rules.
-
+  
 🏗 Architecture
 This library follows Clean Architecture:
 - Domain: Entities, value objects, exceptions, interfaces.
@@ -19,16 +21,21 @@ This library follows Clean Architecture:
 
 - 📂 Project Structure
 
+```
 src/
  ├── RbacService.Domain/
  │    ├── Entities/
  │    ├── Exceptions/
  │    └── Interfaces/
  ├── RbacService.Application/
- │    ├── Commands/
- │    ├── Queries/
- │    ├── Handlers/
- │    ├── Interfaces/
+ │    ├── User/
+ |    |    |──Commands/
+ |    |    |──CommandHandlers/
+ |    |    |──Queries/
+ |    |    |──QueryHandlers/
+ │    ├── Roles/
+ │    ├── DTOs/
+ │    ├── Mappings/
  │    ├── Pipeline/
  │    ├── Validators/        
  │    └── Rules/             
@@ -36,14 +43,15 @@ src/
  │    ├── Data/
  │    ├── Repositories/
  │    ├── Interceptors/
- │    └── DependencyInjection/
+ │    └── UnitOfWork/
  └── RbacService.Api/
       └── Controllers/
-
+```
 
 
 🔄 Sequence Diagram (Authorization Flow)
 
+```mermaid
 sequenceDiagram
     participant Client
     participant API
@@ -68,164 +76,233 @@ sequenceDiagram
     Handler-->>Wolverine: Return decision
     Wolverine-->>API: Response with result
     API-->>Client: Return 200 OK or 403 Forbidden
-
-
+```
 
 🧩 C4 Component Diagram
 
-C4Component
-    title RBAC Library - Component Diagram
+```mermaid
+%% C4Component Diagram for RBAC Library
+flowchart TD
+    subgraph API_Layer["API Layer"]
+        Controller["Controllers
+(ASP.NET Core)
+Expose endpoints for RBAC operations"]
+    end
 
-    Container_Boundary(api, "API Layer") {
-        Component(controller, "Controllers", "ASP.NET Core", "Expose endpoints for RBAC operations")
-    }
+    subgraph Application_Layer["Application Layer"]
+        Commands["Commands/Queries
+(Wolverine)
+Encapsulate use cases"]
+        Handlers["Handlers
+(Wolverine)
+Execute business logic"]
+        Validators["Validators
+(FluentValidation)
+Validate incoming requests"]
+        Rules["Rules Engine
+(RulesEngine)
+Evaluate custom business rules"]
+        Pipeline["Pipeline Behaviors
+(Wolverine)
+Inject user context, auditing"]
+    end
 
-    Container_Boundary(app, "Application Layer") {
-        Component(commands, "Commands/Queries", "Wolverine", "Encapsulate use cases")
-        Component(handlers, "Handlers", "Wolverine", "Execute business logic")
-        Component(validators, "Validators", "FluentValidation", "Validate incoming requests")
-        Component(rules, "Rules Engine", "RulesEngine", "Evaluate custom business rules")
-        Component(pipeline, "Pipeline Behaviors", "Wolverine", "Inject user context, auditing")
-    }
+    subgraph Domain_Layer["Domain Layer"]
+        Entities["Entities
+(C#)
+User, Role, Permission, Organization, Department, PiiField, MaskingRule"]
+        Services["Domain Services
+(C#)
+AccessEvaluator, MaskingService"]
+        Exceptions["Exceptions
+(C#)
+AccessDeniedException, PiiAccessViolationException"]
+    end
 
-    Container_Boundary(domain, "Domain Layer") {
-        Component(entities, "Entities", "C#", "User, Role, Permission, Organization, Department, PiiField, MaskingRule")
-        Component(services, "Domain Services", "C#", "AccessEvaluator, MaskingService")
-        Component(exceptions, "Exceptions", "C#", "AccessDeniedException, PiiAccessViolationException")
-    }
+    subgraph Infrastructure_Layer["Infrastructure Layer"]
+        DbContext["RbacDbContext
+(EF Core)
+Database context with relationships"]
+        Repos["Repositories
+(EF Core)
+Concrete implementations of repository interfaces"]
+        UoW["UnitOfWork
+(EF Core)
+Transaction boundary and repository aggregator"]
+        Interceptors["Interceptors
+(EF Core)
+Audit & soft delete logic"]
+    end
 
-    Container_Boundary(infra, "Infrastructure Layer") {
-        Component(dbcontext, "RbacDbContext", "EF Core", "Database context with relationships")
-        Component(repos, "Repositories", "EF Core", "Concrete implementations of repository interfaces")
-        Component(uow, "UnitOfWork", "EF Core", "Transaction boundary and repository aggregator")
-        Component(interceptors, "Interceptors", "EF Core", "Audit & soft delete logic")
-    }
+    Database["MS SQL or any database
+(Persistence)"]
 
-    Rel(controller, commands, "Dispatches via Wolverine")
-    Rel(commands, handlers, "Handled by")
-    Rel(handlers, validators, "Validated by")
-    Rel(handlers, rules, "Rules evaluated by")
-    Rel(handlers, entities, "Uses")
-    Rel(handlers, services, "Uses")
-    Rel(handlers, repos, "Accesses via UnitOfWork")
-    Rel(repos, dbcontext, "Uses")
-    Rel(dbcontext, Database, "Persists entities")
-
+    Controller --> Commands
+    Commands --> Handlers
+    Handlers --> Validators
+    Handlers --> Rules
+    Handlers --> Entities
+    Handlers --> Services
+    Handlers --> Repos
+    Repos --> UoW
+    Repos --> DbContext
+    DbContext --> Database
+```
 
 ⚙️ Getting Started
 
 - Install dependencies:
+```
 dotnet add package Wolverine
 dotnet add package FluentValidation
 dotnet add package RulesEngine
 dotnet add package Microsoft.EntityFrameworkCore
 dotnet add package Microsoft.EntityFrameworkCore.SqlServer
+```
 
 - Register services in Program.cs:
+```
 builder.Services.AddDbContext(connectionString);
 builder.Services.AddWolverine();
-builder.Services.AddValidatorsFromAssemblyContaining<UserCreatedCommandValidator>();
+builder.Services.AddRbacValidators();
 builder.Services.AddRulesEngine();
+```
 
 - Run migrations:
+
+```
 dotnet ef migrations add InitialCreate -p RbacService.Infrastructure -s RbacService.Api
 dotnet ef database update -p RbacService.Infrastructure -s RbacService.Api
+```
 
-
 
 🔄 Example Flow: UserCreatedCommand
 
 Command
-public record UserCreatedCommand(string Email, string FirstName, string LastName) : ICommand<User>;
-
-
-
-Validator (FluentValidation)
-public class UserCreatedCommandValidator : AbstractValidator<UserCreatedCommand>
-{
-    public UserCreatedCommandValidator()
-    {
-        RuleFor(x => x.Email).NotEmpty().EmailAddress();
-        RuleFor(x => x.FirstName).NotEmpty().MaximumLength(50);
-        RuleFor(x => x.LastName).NotEmpty().MaximumLength(50);
-    }
-}
-
-
+```
+public record CreateUser(string Name, 
+    string Email, 
+    string? Designation, 
+    Guid OrganizationId, 
+    Guid ApplicationId, 
+    Guid? ManagerId, 
+    Guid? DepartmentId);
+```
 
 Rules Engine
+
 Example JSON rule:
+```
 [
   {
-    "WorkflowName": "UserCreation",
+    "WorkflowName": "CreateUser",
     "Rules": [
       {
-        "RuleName": "BlockCertainDomains",
-        "SuccessEvent": "ValidDomain",
-        "ErrorMessage": "Email domain not allowed",
-        "RuleExpressionType": "LambdaExpression",
-        "Expression": "input.Email.EndsWith(\"@blocked.com\") == false"
+        "RuleName": "DesignationRequired",
+        "ErrorMessage": "Designation is required",
+        "Expression": "input.Designation == null"
       }
     ]
   }
 ]
+```
 
-
-Evaluator:
-public class UserCreationRuleEvaluator
+Validator:
+```
+namespace RbacService.Application.Validators.User
 {
-    private readonly RulesEngine.RulesEngine _rulesEngine;
-
-    public UserCreationRuleEvaluator(RulesEngine.RulesEngine rulesEngine)
+    public class CreateUserValidator : UserValidatorBase<Users.Commands.CreateUser>
     {
-        _rulesEngine = rulesEngine;
-    }
+        public CreateUserValidator(IUserRepository users)
+        {
+            AddCommonRules(x => x.Email, x => x.Name, x => x.Designation);
 
-    public async Task<bool> ValidateAsync(UserCreatedCommand command)
-    {
-        var result = await _rulesEngine.ExecuteAllRulesAsync("UserCreation", command);
-        return result.All(r => r.IsSuccess);
+            RuleFor(x => x.Email)
+                .MustAsync(async (email, ct) => !await users.ExistsByEmailAsync(email, null, CancellationToken.None))
+                .WithMessage("Email already exists");
+        }
+
     }
 }
+```
+Validator Service
 
-
+```
+namespace RbacService.Application.Validators
+{
+    public class ValidatorService<T> : IValidatorService<T>
+    {
+        private readonly IValidator<T> _defaultValidator;
+        private readonly RulesEngine.RulesEngine? _rulesEngine;
+
+        public ValidatorService(IValidator<T> defaultValidator, RulesEngine.RulesEngine? rulesEngine = null)
+        {
+            _defaultValidator = defaultValidator;
+            _rulesEngine = rulesEngine;
+        }
+
+        public async Task<IList<string>> ValidateAsync(T command, CancellationToken cancellationToken = default)
+        {
+            var errors = new List<string>();
+
+            // Step 1: FluentValidation (baseline rules)
+            var fluentResult = await _defaultValidator.ValidateAsync(command, cancellationToken);
+            if (!fluentResult.IsValid)
+                errors.AddRange(fluentResult.Errors.Select(e => e.ErrorMessage));
+
+            // Step 2: RulesEngine (tenant-defined rules)
+            if (_rulesEngine != null)
+            {
+                var workflowName = typeof(T).Name;
+                var reResults = await _rulesEngine.ExecuteAllRulesAsync(workflowName, command);
+                if (reResults != null && reResults.Any())
+                {
+                    foreach (var result in reResults.Where(r => !r.IsSuccess))
+                    {
+                        var errorMessage = result.Rule?.ErrorMessage ?? "Business rule validation failed";
+                        errors.Add(errorMessage);
+                    }
+                }
+            }
+
+            return errors;
+        }
+    }
+}
+```
 
 Handler (Wolverine)
-public class UserCreatedCommandHandler : ICommandHandler<UserCreatedCommand, User>
+```
+namespace RbacService.Application.Users.CommandHandlers
 {
-    private readonly RbacDbContext _dbContext;
-    private readonly UserCreationRuleEvaluator _ruleEvaluator;
-
-    public UserCreatedCommandHandler(RbacDbContext dbContext, UserCreationRuleEvaluator ruleEvaluator)
+    public class CreateUserHandler(IUnitOfWork rbacRepository)
     {
-        _dbContext = dbContext;
-        _ruleEvaluator = ruleEvaluator;
-    }
+        public readonly IUnitOfWork _rbacRepository = rbacRepository;
 
-    public async Task<User> Handle(UserCreatedCommand command, CancellationToken cancellationToken)
-    {
-        var rulesPassed = await _ruleEvaluator.ValidateAsync(command);
-        if (!rulesPassed)
-            throw new InvalidOperationException("Business rules failed for user creation.");
-
-        var user = new User
+        public async Task<Guid> Handle(CreateUser command, CancellationToken cancellationToken)
         {
-            Email = command.Email,
-            FirstName = command.FirstName,
-            LastName = command.LastName,
-            CreatedAt = DateTime.UtcNow
-        };
+            var user = new Domain.Entities.User
+            {
+                UserId = Guid.NewGuid(),
+                Email = command.Email,
+                Name = command.Name,
+                Designation = command.Designation,
+                DepartmentId = command.DepartmentId,
+                OrganizationId = command.OrganizationId,
+                ApplicationId = command.ApplicationId,
+                ManagerId = command.ManagerId
+            };
 
-        _dbContext.Users.Add(user);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return user;
+            await _rbacRepository.Users.AddAsync(user, cancellationToken);
+            await _rbacRepository.SaveChangesAsync(cancellationToken);
+            return user.UserId;
+        }
     }
 }
+      
+```
 
-
-
-Sequence Diagram
+```mermaid
 sequenceDiagram
     participant Client
     participant API
@@ -250,3 +327,4 @@ sequenceDiagram
     Handler-->>Wolverine: Return User
     Wolverine-->>API: Success response
     API-->>Client: 201 Created + User details
+```
