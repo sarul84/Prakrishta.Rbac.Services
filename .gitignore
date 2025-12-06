@@ -3,3 +3,11 @@
 ################################################################################
 
 /.vs
+/RbacService.Application/bin/*
+/RbacService.Application/obj
+/RbacService.Domain/bin/*
+/RbacService.Domain/obj
+/RbacService.Infrastructure/bin/*
+/RbacService.Tests/bin/*
+/RbacService.Tests/obj
+/RbacService.Infrastructure/obj
